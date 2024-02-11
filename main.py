@@ -6,10 +6,11 @@ if __name__ == '__main__':
     memory[0xFFFC] = 0x00
     memory[0xFFFD] = 0x02
 
-    # lsr a
-    memory[0x0200] = 0xEA
-    memory[0x0201] = 0xA9
-    memory[0x0202] = 0x05
+    # load 5A into the accumulator
+    memory[0x0200] = 0xA9
+    memory[0x0201] = 0x5A
+
+    memory[0x0202] = 0xEA
 
 
 

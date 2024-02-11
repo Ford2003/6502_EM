@@ -60,6 +60,15 @@ class CPU6502:
             0x5E: (self.lsr, self.addressing_mode['absolute_x']),
             # NOP
             0xEA: (self.nop, self.addressing_mode['implied']),
+            # ORA
+            0x09: (self.ora, self.addressing_mode['immediate']),
+            0x05: (self.ora, self.addressing_mode['zero_page']),
+            0x15: (self.ora, self.addressing_mode['zero_page_x']),
+            0x0D: (self.ora, self.addressing_mode['absolute']),
+            0x1D: (self.ora, self.addressing_mode['absolute_x']),
+            0x19: (self.ora, self.addressing_mode['absolute_y']),
+            0x01: (self.ora, self.addressing_mode['indirect_x']),
+            0x11: (self.ora, self.addressing_mode['indirect_y']),
         }
 
         self.reset()
@@ -97,6 +106,23 @@ class CPU6502:
             raise ByteError(f'Value {value} out of range not a byte')
         self.memory[address] = value
 
+    def get_absolute_address(self) -> int:
+        lsb = self.get_bytePC()
+        msb = self.get_bytePC()
+        return make_addr(lsb, msb)
+
+    def get_indirect_x_address(self) -> int:
+        address = (self.get_bytePC() + self.x) % (0xFF + 1)
+        lsb = self.get_byteADDR(address)
+        msb = self.get_byteADDR((address + 1) % (0xFF + 1))
+        return make_addr(lsb, msb)
+
+    def get_indirect_y_address(self) -> int:
+        address = self.get_bytePC()
+        lsb = self.get_byteADDR(address)
+        msb = self.get_byteADDR((address + 1) % (0xFF + 1))
+        return (make_addr(lsb, msb) + self.y) % (0xFFFF + 1)
+
     def lda(self, addressing_mode: int):
         if addressing_mode == self.addressing_mode['immediate']:
             value = self.get_bytePC()
@@ -113,39 +139,26 @@ class CPU6502:
             self.a = value
         elif addressing_mode == self.addressing_mode['absolute']:
             # Get the address from the next two bytes
-            lsb = self.get_bytePC()
-            msb = self.get_bytePC()
-            address = make_addr(lsb, msb)
+            address = self.get_absolute_address()
             value = self.get_byteADDR(address)
             self.a = value
         elif (addressing_mode == self.addressing_mode['absolute_x']
               or addressing_mode == self.addressing_mode['absolute_y']):
             # Get the address from the next two bytes and add x to it
-            lsb = self.get_bytePC()
-            msb = self.get_bytePC()
+            address = self.get_absolute_address()
             if addressing_mode == self.addressing_mode['absolute_x']:
-                address = (make_addr(lsb, msb) + self.x) % (0xFFFF + 1)
+                address = (address + self.x) % (0xFFFF + 1)
             else:
-                address = (make_addr(lsb, msb) + self.y) % (0xFFFF + 1)
+                address = (address + self.y) % (0xFFFF + 1)
             value = self.get_byteADDR(address)
             self.a = value
         elif addressing_mode == self.addressing_mode['indirect_x']:
-            # Get the zero page address from the next byte and add x to it
-            address = (self.get_bytePC() + self.x) % (0xFF + 1)
-            # Get the lsb and msb from the zero page address and the next zero page address
-            lsb = self.get_byteADDR(address)
-            msb = self.get_byteADDR((address + 1) % (0xFF + 1))
-            # Get the value from the address formed by the lsb and msb
-            value = self.get_byteADDR(make_addr(lsb, msb))
+            address = self.get_indirect_x_address()
+            value = self.get_byteADDR(address)
             self.a = value
         elif addressing_mode == self.addressing_mode['indirect_y']:
-            # get the zero page address from the next byte
-            address = self.get_bytePC()
-            # get the lsb and msb from the zero page address and the next zero page address
-            lsb = self.get_byteADDR(address)
-            msb = self.get_byteADDR((address + 1) % (0xFF + 1))
-            # get the value from the address formed by the lsb and msb and add y to it
-            value = self.get_byteADDR(make_addr(lsb, msb) + self.y)
+            address = self.get_indirect_y_address()
+            value = self.get_byteADDR(address)
             self.a = value
         else:
             raise AddressModeError(f'Addressing mode {addressing_mode} not implemented')
@@ -170,17 +183,13 @@ class CPU6502:
             self.x = value
         elif addressing_mode == self.addressing_mode['absolute']:
             # next 2 bytes make the address
-            lsb = self.get_bytePC()
-            msb = self.get_bytePC()
-            addr = make_addr(lsb, msb)
-            value = self.get_byteADDR(addr)
+            address = self.get_absolute_address()
+            value = self.get_byteADDR(address)
             self.x = value
         elif addressing_mode == self.addressing_mode['absolute_y']:
             # next 2 bytes make the address
-            lsb = self.get_bytePC()
-            msb = self.get_bytePC()
-            addr = (make_addr(lsb, msb) + self.y) % (0xFFFF + 1)
-            value = self.get_byteADDR(addr)
+            address = (self.get_absolute_address() + self.y) % (0xFFFF + 1)
+            value = self.get_byteADDR(address)
             self.x = value
         else:
             raise AddressModeError(f'Addressing mode {addressing_mode} not implemented')
@@ -204,16 +213,12 @@ class CPU6502:
             self.y = value
         elif addressing_mode == self.addressing_mode['absolute']:
             # next 2 bytes make the address
-            lsb = self.get_bytePC()
-            msb = self.get_bytePC()
-            addr = make_addr(lsb, msb)
-            value = self.get_byteADDR(addr)
+            address = self.get_absolute_address()
+            value = self.get_byteADDR(address)
             self.y = value
         elif addressing_mode == self.addressing_mode['absolute_x']:
-            lsb = self.get_bytePC()
-            msb = self.get_bytePC()
-            addr = (make_addr(lsb, msb) + self.x) % (0xFFFF + 1)
-            value = self.get_byteADDR(addr)
+            address = (self.get_absolute_address() + self.x) % (0xFFFF + 1)
+            value = self.get_byteADDR(address)
             self.y = value
         else:
             raise AddressModeError(f'Addressing mode {addressing_mode} not implemented')
@@ -243,18 +248,14 @@ class CPU6502:
             self.store_byteADDR(address, value)
         elif addressing_mode == self.addressing_mode['absolute']:
             # load absolute address, shift right, store back.
-            lsb = self.get_bytePC()
-            msb = self.get_bytePC()
-            address = make_addr(lsb, msb)
+            address = self.get_absolute_address()
             value = self.get_byteADDR(address)
             self.flags['C'] = value & 1 == 1
             value >>= 1
             self.store_byteADDR(address, value)
         elif addressing_mode == self.addressing_mode['absolute_x']:
             # load absolute address + x, shift right, store back.
-            lsb = self.get_bytePC()
-            msb = self.get_bytePC()
-            address = (make_addr(lsb, msb) + self.x) % (0xFFFF + 1)
+            address = (self.get_absolute_address() + self.x) % (0xFFFF + 1)
             value = self.get_byteADDR(address)
             self.flags['C'] = value & 1 == 1
             value >>= 1
@@ -271,6 +272,45 @@ class CPU6502:
             pass
         else:
             raise AddressModeError(f'Addressing mode {addressing_mode} not implemented')
+
+    def ora(self, addressing_mode: int):
+        if addressing_mode == self.addressing_mode['immediate']:
+            value = self.get_bytePC()
+            self.a |= value
+        elif addressing_mode == self.addressing_mode['zero_page']:
+            address = self.get_bytePC()
+            value = self.get_byteADDR(address)
+            self.a |= value
+        elif addressing_mode == self.addressing_mode['zero_page_x']:
+            address = (self.get_bytePC() + self.x) % (0xFF + 1)
+            value = self.get_byteADDR(address)
+            self.a |= value
+        elif addressing_mode == self.addressing_mode['absolute']:
+            address = self.get_absolute_address()
+            value = self.get_byteADDR(address)
+            self.a |= value
+        elif addressing_mode == self.addressing_mode['absolute_x']:
+            address = (self.get_absolute_address() + self.x) % (0xFFFF + 1)
+            value = self.get_byteADDR(address)
+            self.a |= value
+        elif addressing_mode == self.addressing_mode['absolute_y']:
+            address = (self.get_absolute_address() + self.y) % (0xFFFF + 1)
+            value = self.get_byteADDR(address)
+            self.a |= value
+        elif addressing_mode == self.addressing_mode['indirect_x']:
+            address = self.get_indirect_x_address()
+            value = self.get_byteADDR(address)
+            self.a |= value
+        elif addressing_mode == self.addressing_mode['indirect_y']:
+            address = self.get_indirect_y_address()
+            value = self.get_byteADDR(address)
+            self.a |= value
+        else:
+            raise AddressModeError(f'Addressing mode {addressing_mode} not implemented')
+
+        # Update flags
+        self.flags['Z'] = self.a == 0
+        self.flags['N'] = self.a & 0x80 > 0
 
     def brk(self, addressing_mode: int):
         if addressing_mode == self.addressing_mode['implied']:
