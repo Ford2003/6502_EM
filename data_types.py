@@ -97,3 +97,4 @@ class Byte(DType):
 class Word(DType):
     max_value = 0xFFFF
     min_value = 0
+

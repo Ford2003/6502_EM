@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from data_types import Word, Byte
+from data_types import Word, Byte, DType
 
 
 class Memory(ABC):
@@ -8,7 +8,7 @@ class Memory(ABC):
         self.memory = [Byte(0)] * memory_size
 
     @abstractmethod
-    def read(self, address: int):
+    def read(self, address: int | DType):
         pass
 
     def __len__(self):

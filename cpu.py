@@ -87,7 +87,7 @@ class CPU6502:
     def reset(self):
         lsb_addr = self.get_byteADDR(Word(0xFFFC))
         msb_addr = self.get_byteADDR(Word(0xFFFD))
-        self.pc.value = make_addr(lsb_addr, msb_addr)
+        self.pc = make_addr(lsb_addr, msb_addr)
         self.sp.value = 0xFF
 
     def run(self):
@@ -97,7 +97,7 @@ class CPU6502:
     def execute(self):
         # Fetch the opcode
         opcode = self.get_bytePC()
-        func, addressing_mode = self.OPCODES[opcode]
+        func, addressing_mode = self.OPCODES[opcode.value]
         func(addressing_mode)
 
     def get_bytePC(self) -> Byte:
@@ -130,8 +130,8 @@ class CPU6502:
 
     def get_status_register(self) -> Byte:
         status = 0
-        for value in reversed(self.flags.values()):
-            status |= value
+        for bit in reversed(self.flags.values()):
+            status |= bit.value
             status <<= 1
         status >>= 1
         return Byte(status)
@@ -353,11 +353,11 @@ class CPU6502:
     def php(self, addressing_mode: int):
         if addressing_mode == self.addressing_mode['implied']:
             # Push status register to stack
-            self.store_byteADDR(self.sp + 0x0100, self.get_status_register())
+            self.store_byteADDR(Word(self.sp.value + 0x0100), self.get_status_register())
             if self.sp == 0:
-                self.sp = 0xFF
+                self.sp.value = 0xFF
             else:
-                self.sp -= 1
+                self.sp.value -= 1
         else:
             raise AddressModeError(f'Addressing mode {addressing_mode} not implemented')
         print()
@@ -368,7 +368,7 @@ class CPU6502:
                 self.sp.value = 0
             else:
                 self.sp.value += 1
-            status = self.get_byteADDR(self.sp + 0x0100)
+            status = self.get_byteADDR(Word(self.sp.value + 0x0100))
             for flag in self.flags.keys():
                 self.flags[flag] = status & 1
                 status >>= 1
