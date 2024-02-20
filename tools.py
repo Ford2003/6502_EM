@@ -1,2 +1,5 @@
-def make_addr(lsb: int, msb: int) -> int:
-    return (msb << 8) | lsb
+from data_types import Word, Byte
+
+
+def make_addr(lsb: Byte, msb: Byte) -> Word:
+    return Word((msb << 8) | lsb)

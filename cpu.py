@@ -2,28 +2,30 @@ from exceptions import *
 from addressing_modes import addressing_modes_6502
 from tools import *
 from collections import OrderedDict
+from data_types import Word, Byte, Bit
+from memory import Memory
 
 
 class CPU6502:
-    def __init__(self, memory):
+    def __init__(self, memory: Memory):
         # Registers
-        self.a = 0xA3
-        self.x = 0xD
-        self.y = 4
+        self.a = Byte(0)
+        self.x = Byte(0)
+        self.y = Byte(0)
         # Program Counter
-        self.pc = 0
+        self.pc = Word(0)
         # Stack Pointer - Stack memory range is 0x0100 to 0x01FF
-        self.sp = 0
+        self.sp = Byte(0)
         # Status Flags
         self.flags = OrderedDict({
-            'C': False,  # Carry flag
-            'Z': False,  # Zero flag
-            'I': True,  # Disable interrupts
-            'D': True,  # Decimal mode
-            'B': False,  # Break command
-            'U': True,  # Unused
-            'V': False,  # Overflow flag
-            'N': True,  # Negative flag
+            'C': Bit(False),  # Carry flag
+            'Z': Bit(False),  # Zero flag
+            'I': Bit(False),  # Disable interrupts
+            'D': Bit(False),  # Decimal mode
+            'B': Bit(False),  # Break command
+            'U': Bit(False),  # Unused
+            'V': Bit(False),  # Overflow flag
+            'N': Bit(False),  # Negative flag
         })
         self.memory = memory
 
@@ -83,10 +85,10 @@ class CPU6502:
         self.reset()
 
     def reset(self):
-        lsb_addr = self.get_byteADDR(0xFFFC)
-        msb_addr = self.get_byteADDR(0xFFFD)
-        self.pc = make_addr(lsb_addr, msb_addr)
-        self.sp = 0xFF
+        lsb_addr = self.get_byteADDR(Word(0xFFFC))
+        msb_addr = self.get_byteADDR(Word(0xFFFD))
+        self.pc.value = make_addr(lsb_addr, msb_addr)
+        self.sp.value = 0xFF
 
     def run(self):
         while True:
@@ -98,48 +100,41 @@ class CPU6502:
         func, addressing_mode = self.OPCODES[opcode]
         func(addressing_mode)
 
-    def get_bytePC(self) -> int:
+    def get_bytePC(self) -> Byte:
         data = self.memory[self.pc]
-        if data < 0 or data > 0xFF:
-            raise ByteError(f'Value {data} out of range not a byte')
         self.pc += 1
         return data
 
-    def get_byteADDR(self, address: int) -> int:
-        data = self.memory[address]
-        if data < 0 or data > 0xFF:
-            raise ByteError(f'Value {data} out of range not a byte')
-        return data
+    def get_byteADDR(self, address: Word | Byte) -> Byte:
+        return self.memory[address]
 
-    def store_byteADDR(self, address: int, value: int):
-        if value < 0 or value > 0xFF:
-            raise ByteError(f'Value {value} out of range not a byte')
+    def store_byteADDR(self, address: Word | Byte, value: Byte):
         self.memory[address] = value
 
-    def get_absolute_address(self) -> int:
+    def get_absolute_address(self) -> Word:
         lsb = self.get_bytePC()
         msb = self.get_bytePC()
         return make_addr(lsb, msb)
 
-    def get_indirect_x_address(self) -> int:
+    def get_indirect_x_address(self) -> Word:
         address = (self.get_bytePC() + self.x) % (0xFF + 1)
         lsb = self.get_byteADDR(address)
         msb = self.get_byteADDR((address + 1) % (0xFF + 1))
         return make_addr(lsb, msb)
 
-    def get_indirect_y_address(self) -> int:
-        address = self.get_bytePC()
+    def get_indirect_y_address(self) -> Word:
+        address = Word(self.get_bytePC())
         lsb = self.get_byteADDR(address)
         msb = self.get_byteADDR((address + 1) % (0xFF + 1))
         return (make_addr(lsb, msb) + self.y) % (0xFFFF + 1)
 
-    def get_status_register(self):
+    def get_status_register(self) -> Byte:
         status = 0
         for value in reversed(self.flags.values()):
             status |= value
             status <<= 1
         status >>= 1
-        return status
+        return Byte(status)
 
     def lda(self, addressing_mode: int):
         if addressing_mode == self.addressing_mode['immediate']:
@@ -182,8 +177,8 @@ class CPU6502:
             raise AddressModeError(f'Addressing mode {addressing_mode} not implemented')
 
         # Update flags
-        self.flags['Z'] = self.a == 0
-        self.flags['N'] = self.a & 0b10000000 > 0
+        self.flags['Z'] = Bit(self.a == 0)
+        self.flags['N'] = Bit(self.a & 0b10000000 > 0)
 
     def ldx(self, addressing_mode: int):
         if addressing_mode == self.addressing_mode['immediate']:
@@ -212,8 +207,8 @@ class CPU6502:
         else:
             raise AddressModeError(f'Addressing mode {addressing_mode} not implemented')
         # Update flags
-        self.flags['Z'] = self.x == 0
-        self.flags['N'] = self.x & 0b10000000 > 0
+        self.flags['Z'].value = self.x == 0
+        self.flags['N'].value = self.x & 0b10000000 > 0
 
     def ldy(self, addressing_mode: int):
         if addressing_mode == self.addressing_mode['immediate']:
@@ -241,8 +236,8 @@ class CPU6502:
         else:
             raise AddressModeError(f'Addressing mode {addressing_mode} not implemented')
 
-        self.flags['Z'] = self.y == 0
-        self.flags['N'] = self.y & 0b10000000 > 0
+        self.flags['Z'].value = self.y == 0
+        self.flags['N'].value = self.y & 0b10000000 > 0
 
     def lsr(self, addressing_mode: int):
         if addressing_mode == self.addressing_mode['accumulator']:
@@ -282,8 +277,8 @@ class CPU6502:
             raise AddressModeError(f'Addressing mode {addressing_mode} not implemented')
 
         # Update flags.
-        self.flags['Z'] = value == 0
-        self.flags['N'] = value & 0x80 > 0
+        self.flags['Z'].value = value == 0
+        self.flags['N'].value = value & 0x80 > 0
 
     def nop(self, addressing_mode: int):
         if addressing_mode == self.addressing_mode['implied']:
@@ -327,16 +322,16 @@ class CPU6502:
             raise AddressModeError(f'Addressing mode {addressing_mode} not implemented')
 
         # Update flags
-        self.flags['Z'] = self.a == 0
-        self.flags['N'] = self.a & 0x80 > 0
+        self.flags['Z'].value = self.a == 0
+        self.flags['N'].value = self.a & 0x80 > 0
 
     def pha(self, addressing_mode: int):
         if addressing_mode == self.addressing_mode['implied']:
-            self.store_byteADDR(0x0100 + self.sp, self.a)
+            self.store_byteADDR(self.sp + 0x0100, self.a)
             if self.sp == 0:
-                self.sp = 0xFF
+                self.sp.value = 0xFF
             else:
-                self.sp -= 1
+                self.sp.value -= 1
         else:
             raise AddressModeError(f'Addressing mode {addressing_mode} not implemented')
 
@@ -344,21 +339,21 @@ class CPU6502:
         if addressing_mode == self.addressing_mode['implied']:
             if self.sp == 0xFF:
                 # Loop stack around to 0x0100
-                self.sp = 0
+                self.sp.value = 0
             else:
-                self.sp += 1
-            self.a = self.get_byteADDR(0x0100 + self.sp)
+                self.sp.value += 1
+            self.a = self.get_byteADDR(self.sp + 0x0100)
         else:
             raise AddressModeError(f'Addressing mode {addressing_mode} not implemented')
 
         # Update flags
-        self.flags['Z'] = self.a == 0
-        self.flags['N'] = self.a & 0x80 > 0
+        self.flags['Z'].value = self.a == 0
+        self.flags['N'].value = self.a & 0x80 > 0
 
     def php(self, addressing_mode: int):
         if addressing_mode == self.addressing_mode['implied']:
             # Push status register to stack
-            self.store_byteADDR(0x0100 + self.sp, self.get_status_register())
+            self.store_byteADDR(self.sp + 0x0100, self.get_status_register())
             if self.sp == 0:
                 self.sp = 0xFF
             else:
@@ -370,10 +365,10 @@ class CPU6502:
     def plp(self, addressing_mode: int):
         if addressing_mode == self.addressing_mode['implied']:
             if self.sp == 0xFF:
-                self.sp = 0
+                self.sp.value = 0
             else:
-                self.sp += 1
-            status = self.get_byteADDR(0x0100 + self.sp)
+                self.sp.value += 1
+            status = self.get_byteADDR(self.sp + 0x0100)
             for flag in self.flags.keys():
                 self.flags[flag] = status & 1
                 status >>= 1
@@ -383,7 +378,7 @@ class CPU6502:
 
     def brk(self, addressing_mode: int):
         if addressing_mode == self.addressing_mode['implied']:
-            self.flags['B'] = True
+            self.flags['B'].value = 1
             raise InterruptError('BRK instruction encountered')
         else:
             raise AddressModeError(f'Addressing mode {addressing_mode} not implemented')
