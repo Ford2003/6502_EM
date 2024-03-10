@@ -24,23 +24,26 @@ class DType:
         return hex(self.value)
 
     def msb(self):
-        return int(bin(self.value)[2])
+        return Bit(int(bin(self.value)[2]))
 
     def lsb(self):
-        return self.value & 1
+        return Bit(self.value & 1)
 
     def __index__(self):
         return self.value
 
     def __add__(self, other):
         if isinstance(other, DType):
-            return self.__class__(self.value + other.value)
+            return self.__class__((self.value + other.value) % (self.max_value + 1))
         if isinstance(other, int):
-            return self.__class__(self.value + other)
+            return self.__class__((self.value + other) % (self.max_value + 1))
         raise TypeError(f'unsupported operand type(s) for +: {self.__class__.__name__} and {other.__class__.__name__}')
 
     def __str__(self):
         return f'{self.__class__.__name__}({self.value} | {bin(self)} | {hex(self)})'
+
+    def __repr__(self):
+        return self.__str__()
 
     def __rshift__(self, other):
         if isinstance(other, int):
@@ -49,7 +52,7 @@ class DType:
 
     def __lshift__(self, other):
         if isinstance(other, int):
-            return self.__class__(self.value << other)
+            return self.__class__((self.value << other) % (self.max_value + 1))
         raise TypeError(f'unsupported operand type(s) for <<: {self.__class__.__name__}')
 
     def __and__(self, other):
@@ -79,9 +82,54 @@ class DType:
     def __eq__(self, other):
         if isinstance(other, DType):
             return Bit(self.value == other.value)
-        if isinstance(other, int):
+        if isinstance(other, int) or isinstance(other, bool):
             return Bit(self.value == other)
         raise TypeError(f'unsupported operand type(s) for ==: {other.__class__.__name__}')
+
+    def __ne__(self, other):
+        if isinstance(other, DType):
+            return Bit(self.value != other.value)
+        if isinstance(other, int):
+            return Bit(self.value != other)
+        raise TypeError(f'unsupported operand type(s) for !=: {other.__class__.__name__}')
+
+    def __lt__(self, other):
+        if isinstance(other, DType):
+            return Bit(self.value < other.value)
+        if isinstance(other, int):
+            return Bit(self.value < other)
+        raise TypeError(f'unsupported operand type(s) for <: {other.__class__.__name__}')
+
+    def __le__(self, other):
+        if isinstance(other, DType):
+            return Bit(self.value <= other.value)
+        if isinstance(other, int):
+            return Bit(self.value <= other)
+        raise TypeError(f'unsupported operand type(s) for <=: {other.__class__.__name__}')
+
+    def __gt__(self, other):
+        if isinstance(other, DType):
+            return Bit(self.value > other.value)
+        if isinstance(other, int):
+            return Bit(self.value > other)
+        raise TypeError(f'unsupported operand type(s) for >: {other.__class__.__name__}')
+
+    def __ge__(self, other):
+        if isinstance(other, DType):
+            return Bit(self.value >= other.value)
+        if isinstance(other, int):
+            return Bit(self.value >= other)
+        raise TypeError(f'unsupported operand type(s) for >=: {other.__class__.__name__}')
+
+    def __mod__(self, other):
+        if isinstance(other, DType):
+            return self.__class__(self.value % other.value)
+        if isinstance(other, int):
+            return self.__class__(self.value % other)
+        raise TypeError(f'unsupported operand type(s) for %: {other.__class__.__name__}')
+
+    def __bool__(self):
+        return bool(self.value)
 
 
 class Bit(DType):
@@ -97,4 +145,3 @@ class Byte(DType):
 class Word(DType):
     max_value = 0xFFFF
     min_value = 0
-

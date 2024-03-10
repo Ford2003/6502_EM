@@ -14,7 +14,7 @@ class Memory(ABC):
     def __len__(self):
         return self.memory_size
 
-    def __getitem__(self, address: int):
+    def __getitem__(self, address: int | DType):
         return self.memory[address]
 
     def __setitem__(self, key, value):
@@ -27,6 +27,9 @@ class RAM(Memory):
         self.memory[address] = value
 
     def read(self, address: Word):
+        return self.memory[address]
+
+    def __getitem__(self, address: Word | int):
         return self.memory[address]
 
     def __setitem__(self, address: Word, value: Byte):
